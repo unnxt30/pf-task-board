@@ -47,7 +47,7 @@ export default function StatusList({ status }: StatusListProps) {
             console.error('Error loading tasks:', error);
             return [];
         }
-    });
+    }); // This method initializes the tasks directly from localStorage before rendering.
 
     React.useEffect(() => {
         localStorage.setItem(`tasks-${status}`, JSON.stringify(tasks));
