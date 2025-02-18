@@ -25,16 +25,39 @@ import { Task } from '../types';
 
 interface StatusListProps {
     status: string;
+    availableStatuses: string[];
     onTaskMove?: (task: Task, newStatus: string) => void;
+    onRemoveStatus?: (status: string) => void;
+    isRemovable?: boolean;
 }
 
-const statusColors: { [key: string]: string } = {
-    'Not started': '#FFA500',
-    'In progress': '#FFD700',
-    Completed: '#00BFFF',
+const getStatusColor = (status: string): string => {
+    const defaultColors: { [key: string]: string } = {
+        'Not started': '#FFA500',
+        'In progress': '#FFD700',
+        Completed: '#00BFFF',
+    };
+
+    if (defaultColors[status]) {
+        return defaultColors[status];
+    }
+
+    // Generate a random color for custom statuses
+    let hash = 0;
+    for (let i = 0; i < status.length; i++) {
+        hash = status.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = hash % 360;
+    return `hsl(${hue}, 70%, 80%)`;
 };
 
-export default function StatusList({ status, onTaskMove }: StatusListProps) {
+export default function StatusList({
+    status,
+    onTaskMove,
+    onRemoveStatus,
+    isRemovable,
+    availableStatuses,
+}: StatusListProps) {
     const [open, setOpen] = React.useState(false);
     const [taskName, setTaskName] = React.useState('');
     const [taskDescription, setTaskDescription] = React.useState('');
@@ -177,7 +200,7 @@ export default function StatusList({ status, onTaskMove }: StatusListProps) {
         }
     };
 
-    const statusColor = statusColors[status] || '#000';
+    // const statusColor = getStatusColor(status);
 
     const [, dropRef] = useDrop<{ task: Task }, void, any>({
         accept: 'task',
@@ -206,8 +229,13 @@ export default function StatusList({ status, onTaskMove }: StatusListProps) {
                     <Chip
                         label={status}
                         size="small"
+                        onDelete={
+                            isRemovable
+                                ? () => onRemoveStatus?.(status)
+                                : undefined
+                        }
                         sx={{
-                            backgroundColor: statusColor,
+                            backgroundColor: getStatusColor(status),
                             color: 'rgba(0, 0, 0, 0.6)',
                             fontWeight: 'medium',
                             mr: 1,
@@ -314,6 +342,7 @@ export default function StatusList({ status, onTaskMove }: StatusListProps) {
                                 )
                             }
                         />
+
                         <TextField
                             select
                             margin="dense"
@@ -328,7 +357,7 @@ export default function StatusList({ status, onTaskMove }: StatusListProps) {
                                 )
                             }
                         >
-                            {Object.keys(statusColors).map((statusOption) => (
+                            {availableStatuses.map((statusOption) => (
                                 <MenuItem
                                     key={statusOption}
                                     value={statusOption}
