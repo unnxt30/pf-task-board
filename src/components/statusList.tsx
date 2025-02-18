@@ -368,6 +368,20 @@ export default function StatusList({
                         </TextField>
                     </DialogContent>
                     <DialogActions>
+                        <Button
+                            onClick={() => {
+                                if (editingIndex !== null) {
+                                    handleDeleteTask(editingIndex);
+                                }
+                                setEditOpen(false);
+                                setEditingTask(null);
+                                setEditingIndex(null);
+                            }}
+                            color="error"
+                            sx={{ mr: 'auto' }}
+                        >
+                            Delete
+                        </Button>
                         <Button onClick={() => setEditOpen(false)}>
                             Cancel
                         </Button>
