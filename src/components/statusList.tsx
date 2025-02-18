@@ -15,20 +15,17 @@ import {
     Typography,
     Stack,
     IconButton,
+    MenuItem,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import { useDrag, useDrop } from 'react-dnd';
 import { useCallback } from 'react';
+import { Task } from '../types';
 
 interface StatusListProps {
     status: string;
-}
-
-interface Task {
-    name: string;
-    description: string;
-    status: string;
+    onTaskMove?: (task: Task, newStatus: string) => void;
 }
 
 const statusColors: { [key: string]: string } = {
@@ -37,7 +34,7 @@ const statusColors: { [key: string]: string } = {
     Completed: '#00BFFF',
 };
 
-export default function StatusList({ status }: StatusListProps) {
+export default function StatusList({ status, onTaskMove }: StatusListProps) {
     const [open, setOpen] = React.useState(false);
     const [taskName, setTaskName] = React.useState('');
     const [taskDescription, setTaskDescription] = React.useState('');
@@ -50,10 +47,52 @@ export default function StatusList({ status }: StatusListProps) {
             return [];
         }
     }); // This method initializes the tasks directly from localStorage before rendering.
+    const [editOpen, setEditOpen] = React.useState(false);
+    const [editingTask, setEditingTask] = React.useState<Task | null>(null);
+    const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
+
+    // Add event listener for storage changes
+    React.useEffect(() => {
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === `tasks-${status}`) {
+                const newTasks = e.newValue ? JSON.parse(e.newValue) : [];
+                setTasks(newTasks);
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, [status]);
+
+    // Add a custom event for same-window updates
+    const emitLocalStorageUpdate = (newTasks: Task[]) => {
+        const event = new CustomEvent('localStorageUpdate', {
+            detail: {
+                key: `tasks-${status}`,
+                newValue: JSON.stringify(newTasks),
+            },
+        });
+        window.dispatchEvent(event);
+    };
 
     React.useEffect(() => {
-        localStorage.setItem(`tasks-${status}`, JSON.stringify(tasks));
-    }, [tasks, status]);
+        const handleLocalUpdate = (e: CustomEvent) => {
+            if (e.detail.key === `tasks-${status}`) {
+                const newTasks = JSON.parse(e.detail.newValue);
+                setTasks(newTasks);
+            }
+        };
+
+        window.addEventListener(
+            'localStorageUpdate',
+            handleLocalUpdate as EventListener
+        );
+        return () =>
+            window.removeEventListener(
+                'localStorageUpdate',
+                handleLocalUpdate as EventListener
+            );
+    }, [status]);
 
     const handleClickOpen = () => setOpen(true);
     const handleClose = () => setOpen(false);
@@ -105,6 +144,39 @@ export default function StatusList({ status }: StatusListProps) {
         [tasks, status]
     );
 
+    const handleEditTask = (task: Task, index: number) => {
+        setEditingTask(task);
+        setEditingIndex(index);
+        setEditOpen(true);
+    };
+
+    const handleSaveEdit = () => {
+        if (editingTask && editingIndex !== null) {
+            if (editingTask.status !== status && onTaskMove) {
+                onTaskMove(editingTask, editingTask.status);
+                const updatedTasks = tasks.filter((_, i) => i !== editingIndex);
+                setTasks(updatedTasks);
+                localStorage.setItem(
+                    `tasks-${status}`,
+                    JSON.stringify(updatedTasks)
+                );
+                emitLocalStorageUpdate(updatedTasks);
+            } else {
+                const updatedTasks = [...tasks];
+                updatedTasks[editingIndex] = editingTask;
+                setTasks(updatedTasks);
+                localStorage.setItem(
+                    `tasks-${status}`,
+                    JSON.stringify(updatedTasks)
+                );
+                emitLocalStorageUpdate(updatedTasks);
+            }
+            setEditOpen(false);
+            setEditingTask(null);
+            setEditingIndex(null);
+        }
+    };
+
     const statusColor = statusColors[status] || '#000';
 
     return (
@@ -148,6 +220,7 @@ export default function StatusList({ status }: StatusListProps) {
                         task={task}
                         index={index}
                         handleDeleteTask={handleDeleteTask}
+                        handleEditTask={handleEditTask}
                         moveListItem={moveListItem}
                     />
                 ))}
@@ -181,6 +254,68 @@ export default function StatusList({ status }: StatusListProps) {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
+                <DialogTitle>Edit Task</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Task Name"
+                        fullWidth
+                        value={editingTask?.name || ''}
+                        onChange={(e) =>
+                            setEditingTask((prev) =>
+                                prev ? { ...prev, name: e.target.value } : null
+                            )
+                        }
+                    />
+                    <TextField
+                        margin="dense"
+                        label="Task Description"
+                        fullWidth
+                        multiline
+                        rows={2}
+                        value={editingTask?.description || ''}
+                        onChange={(e) =>
+                            setEditingTask((prev) =>
+                                prev
+                                    ? { ...prev, description: e.target.value }
+                                    : null
+                            )
+                        }
+                    />
+                    <TextField
+                        select
+                        margin="dense"
+                        label="Status"
+                        fullWidth
+                        value={editingTask?.status || status}
+                        onChange={(e) =>
+                            setEditingTask((prev) =>
+                                prev
+                                    ? { ...prev, status: e.target.value }
+                                    : null
+                            )
+                        }
+                    >
+                        {Object.keys(statusColors).map((statusOption) => (
+                            <MenuItem key={statusOption} value={statusOption}>
+                                {statusOption}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+                    <Button
+                        onClick={handleSaveEdit}
+                        disabled={!editingTask?.name.trim()}
+                    >
+                        Save
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }
@@ -189,6 +324,7 @@ interface StatusListItemProps {
     task: Task;
     index: number;
     handleDeleteTask: (index: number) => void;
+    handleEditTask: (task: Task, index: number) => void;
     moveListItem: (dragIndex: number, hoverIndex: number) => void;
 }
 
@@ -196,6 +332,7 @@ function StatusListItem({
     task,
     index,
     handleDeleteTask,
+    handleEditTask,
     moveListItem,
 }: StatusListItemProps) {
     const ref = React.useRef<HTMLDivElement>(null);
@@ -233,7 +370,11 @@ function StatusListItem({
 
     return (
         <div ref={dragDropRef as React.Ref<HTMLDivElement>}>
-            <Card sx={{ ':hover': { cursor: 'pointer' } }} variant="outlined">
+            <Card
+                sx={{ ':hover': { cursor: 'pointer' } }}
+                variant="outlined"
+                onClick={() => handleEditTask(task, index)}
+            >
                 <CardContent
                     sx={{
                         p: 2,
@@ -253,7 +394,10 @@ function StatusListItem({
                         )}
                     </Box>
                     <IconButton
-                        onClick={() => handleDeleteTask(index)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTask(index);
+                        }}
                         size="small"
                         color="error"
                     >

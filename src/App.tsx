@@ -3,8 +3,54 @@ import './App.css';
 import StatusList from './components/statusList';
 import { Box } from '@mui/material';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { Task } from './types';
 
 function App() {
+    const handleTaskMove = (task: Task, newStatus: string) => {
+        // Get current tasks for the new status
+        const currentTasks = JSON.parse(
+            localStorage.getItem(`tasks-${newStatus}`) || '[]'
+        );
+
+        // Remove task from old status
+        const oldTasks = JSON.parse(
+            localStorage.getItem(`tasks-${task.status}`) || '[]'
+        );
+        const updatedOldTasks = oldTasks.filter(
+            (t: Task) =>
+                t.name !== task.name || t.description !== task.description
+        );
+        localStorage.setItem(
+            `tasks-${task.status}`,
+            JSON.stringify(updatedOldTasks)
+        );
+
+        // Add task to new status list
+        const updatedTasks = [...currentTasks, { ...task, status: newStatus }];
+        localStorage.setItem(
+            `tasks-${newStatus}`,
+            JSON.stringify(updatedTasks)
+        );
+
+        // Emit custom events for both lists
+        window.dispatchEvent(
+            new CustomEvent('localStorageUpdate', {
+                detail: {
+                    key: `tasks-${task.status}`,
+                    newValue: JSON.stringify(updatedOldTasks),
+                },
+            })
+        );
+        window.dispatchEvent(
+            new CustomEvent('localStorageUpdate', {
+                detail: {
+                    key: `tasks-${newStatus}`,
+                    newValue: JSON.stringify(updatedTasks),
+                },
+            })
+        );
+    };
+
     return (
         <DndProvider backend={HTML5Backend}>
             <Box
@@ -22,9 +68,9 @@ function App() {
                     margin: 0,
                 }}
             >
-                <StatusList status="Not started" />
-                <StatusList status="In progress" />
-                <StatusList status="Completed" />
+                <StatusList status="Not started" onTaskMove={handleTaskMove} />
+                <StatusList status="In progress" onTaskMove={handleTaskMove} />
+                <StatusList status="Completed" onTaskMove={handleTaskMove} />
             </Box>
         </DndProvider>
     );
