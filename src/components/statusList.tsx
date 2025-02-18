@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { DetailedHTMLProps, HTMLAttributes } from 'react';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -179,144 +180,179 @@ export default function StatusList({ status, onTaskMove }: StatusListProps) {
 
     const statusColor = statusColors[status] || '#000';
 
+    const [, dropRef] = useDrop<{ task: Task }, void, any>({
+        accept: 'task',
+        drop: (item: { task: Task }) => {
+            if (item.task.status !== status) {
+                onTaskMove?.(item.task, status);
+            }
+        },
+    });
+
     return (
-        <Box sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Chip
-                    label={status}
-                    size="small"
-                    sx={{
-                        backgroundColor: statusColor,
-                        color: 'rgba(0, 0, 0, 0.6)',
-                        fontWeight: 'medium',
-                        mr: 1,
-                    }}
-                />
-                <Typography variant="body2" color="text.secondary">
-                    {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
-                </Typography>
-                <IconButton
-                    onClick={handleClickOpen}
-                    size="small"
-                    sx={{ ml: 'auto' }}
-                >
-                    <AddIcon />
-                </IconButton>
-                {tasks.length > 0 && (
-                    <Button
-                        onClick={handleClearTasks}
+        <div ref={dropRef as unknown as React.RefObject<HTMLDivElement>}>
+            <Box
+                sx={{
+                    width: '100%',
+                    maxWidth: 360,
+                    bgcolor: 'background.paper',
+                    minHeight: '100px',
+                    padding: 2,
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Chip
+                        label={status}
                         size="small"
-                        color="error"
+                        sx={{
+                            backgroundColor: statusColor,
+                            color: 'rgba(0, 0, 0, 0.6)',
+                            fontWeight: 'medium',
+                            mr: 1,
+                        }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                        {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
+                    </Typography>
+                    <IconButton
+                        onClick={handleClickOpen}
+                        size="small"
+                        sx={{ ml: 'auto' }}
                     >
-                        Clear
-                    </Button>
-                )}
+                        <AddIcon />
+                    </IconButton>
+                    {tasks.length > 0 && (
+                        <Button
+                            onClick={handleClearTasks}
+                            size="small"
+                            color="error"
+                        >
+                            Clear
+                        </Button>
+                    )}
+                </Box>
+
+                <Stack spacing={1}>
+                    {tasks.map((task, index) => (
+                        <StatusListItem
+                            key={index}
+                            task={task}
+                            index={index}
+                            handleDeleteTask={handleDeleteTask}
+                            handleEditTask={handleEditTask}
+                            moveListItem={moveListItem}
+                        />
+                    ))}
+                </Stack>
+
+                <Dialog open={open} onClose={handleClose}>
+                    <DialogTitle>Add Task</DialogTitle>
+                    <DialogContent>
+                        <TextField
+                            autoFocus
+                            margin="dense"
+                            label="Task Name"
+                            fullWidth
+                            value={taskName}
+                            onChange={(e) => setTaskName(e.target.value)}
+                        />
+                        <TextField
+                            margin="dense"
+                            label="Task Description"
+                            fullWidth
+                            multiline
+                            rows={2}
+                            value={taskDescription}
+                            onChange={(e) => setTaskDescription(e.target.value)}
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={handleClose}>Cancel</Button>
+                        <Button
+                            onClick={handleAddTask}
+                            disabled={!taskName.trim()}
+                        >
+                            Add
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
+                    <DialogTitle>Edit Task</DialogTitle>
+                    <DialogContent>
+                        <TextField
+                            autoFocus
+                            margin="dense"
+                            label="Task Name"
+                            fullWidth
+                            value={editingTask?.name || ''}
+                            onChange={(e) =>
+                                setEditingTask((prev) =>
+                                    prev
+                                        ? { ...prev, name: e.target.value }
+                                        : null
+                                )
+                            }
+                        />
+                        <TextField
+                            margin="dense"
+                            label="Task Description"
+                            fullWidth
+                            multiline
+                            rows={2}
+                            value={editingTask?.description || ''}
+                            onChange={(e) =>
+                                setEditingTask((prev) =>
+                                    prev
+                                        ? {
+                                              ...prev,
+                                              description: e.target.value,
+                                          }
+                                        : null
+                                )
+                            }
+                        />
+                        <TextField
+                            select
+                            margin="dense"
+                            label="Status"
+                            fullWidth
+                            value={editingTask?.status || status}
+                            onChange={(e) =>
+                                setEditingTask((prev) =>
+                                    prev
+                                        ? { ...prev, status: e.target.value }
+                                        : null
+                                )
+                            }
+                        >
+                            {Object.keys(statusColors).map((statusOption) => (
+                                <MenuItem
+                                    key={statusOption}
+                                    value={statusOption}
+                                >
+                                    {statusOption}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setEditOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSaveEdit}
+                            disabled={!editingTask?.name.trim()}
+                        >
+                            Save
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </Box>
-
-            <Stack spacing={1}>
-                {tasks.map((task, index) => (
-                    <StatusListItem
-                        key={index}
-                        task={task}
-                        index={index}
-                        handleDeleteTask={handleDeleteTask}
-                        handleEditTask={handleEditTask}
-                        moveListItem={moveListItem}
-                    />
-                ))}
-            </Stack>
-
-            <Dialog open={open} onClose={handleClose}>
-                <DialogTitle>Add Task</DialogTitle>
-                <DialogContent>
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="Task Name"
-                        fullWidth
-                        value={taskName}
-                        onChange={(e) => setTaskName(e.target.value)}
-                    />
-                    <TextField
-                        margin="dense"
-                        label="Task Description"
-                        fullWidth
-                        multiline
-                        rows={2}
-                        value={taskDescription}
-                        onChange={(e) => setTaskDescription(e.target.value)}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClose}>Cancel</Button>
-                    <Button onClick={handleAddTask} disabled={!taskName.trim()}>
-                        Add
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
-                <DialogTitle>Edit Task</DialogTitle>
-                <DialogContent>
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="Task Name"
-                        fullWidth
-                        value={editingTask?.name || ''}
-                        onChange={(e) =>
-                            setEditingTask((prev) =>
-                                prev ? { ...prev, name: e.target.value } : null
-                            )
-                        }
-                    />
-                    <TextField
-                        margin="dense"
-                        label="Task Description"
-                        fullWidth
-                        multiline
-                        rows={2}
-                        value={editingTask?.description || ''}
-                        onChange={(e) =>
-                            setEditingTask((prev) =>
-                                prev
-                                    ? { ...prev, description: e.target.value }
-                                    : null
-                            )
-                        }
-                    />
-                    <TextField
-                        select
-                        margin="dense"
-                        label="Status"
-                        fullWidth
-                        value={editingTask?.status || status}
-                        onChange={(e) =>
-                            setEditingTask((prev) =>
-                                prev
-                                    ? { ...prev, status: e.target.value }
-                                    : null
-                            )
-                        }
-                    >
-                        {Object.keys(statusColors).map((statusOption) => (
-                            <MenuItem key={statusOption} value={statusOption}>
-                                {statusOption}
-                            </MenuItem>
-                        ))}
-                    </TextField>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-                    <Button
-                        onClick={handleSaveEdit}
-                        disabled={!editingTask?.name.trim()}
-                    >
-                        Save
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </Box>
+        </div>
     );
 }
 
@@ -338,7 +374,7 @@ function StatusListItem({
     const ref = React.useRef<HTMLDivElement>(null);
     const [, dragRef] = useDrag({
         type: 'task',
-        item: { index },
+        item: { index, task },
         collect: (monitor) => ({
             isDragging: monitor.isDragging(),
         }),
