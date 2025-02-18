@@ -101,7 +101,6 @@ export default function StatusList({ status }: StatusListProps) {
                 );
                 return updatedTasks;
             });
-
         },
         [tasks, status]
     );
@@ -200,7 +199,7 @@ function StatusListItem({
     moveListItem,
 }: StatusListItemProps) {
     const ref = React.useRef<HTMLDivElement>(null);
-    const [{ isDragging }, dragRef] = useDrag({
+    const [, dragRef] = useDrag({
         type: 'task',
         item: { index },
         collect: (monitor) => ({
@@ -208,7 +207,7 @@ function StatusListItem({
         }),
     });
 
-    const [spec, dropRef] = useDrop({
+    const [, dropRef] = useDrop({
         accept: 'task',
         hover: (item: { index: number }, monitor) => {
             const dragIndex = item.index;
@@ -221,10 +220,9 @@ function StatusListItem({
                 (monitor.getClientOffset()?.y || 0) - hoverBoundingRect.top;
 
             // if dragging down, continue only when hover is smaller than middle Y
-           if (dragIndex === hoverIndex) return; // Prevent redundant updates
-           if (dragIndex < hoverIndex && hoverActualY < hoverMiddleY) return;
-           if (dragIndex > hoverIndex && hoverActualY > hoverMiddleY) return;
-
+            if (dragIndex === hoverIndex) return; // Prevent redundant updates
+            if (dragIndex < hoverIndex && hoverActualY < hoverMiddleY) return;
+            if (dragIndex > hoverIndex && hoverActualY > hoverMiddleY) return;
 
             moveListItem(dragIndex, hoverIndex);
             item.index = hoverIndex;
@@ -235,10 +233,7 @@ function StatusListItem({
 
     return (
         <div ref={dragDropRef as React.Ref<HTMLDivElement>}>
-            <Card
-                sx={{ ':hover': { cursor: 'pointer' } }}
-                variant="outlined"
-            >
+            <Card sx={{ ':hover': { cursor: 'pointer' } }} variant="outlined">
                 <CardContent
                     sx={{
                         p: 2,
